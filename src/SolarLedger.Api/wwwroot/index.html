@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SolarLedger</title>
+  <style>
+    :root {
+      --bg: #f6f7f9; --card: #ffffff; --ink: #1a1d23; --muted: #6b7280;
+      --line: #e6e8eb; --accent: #f59e0b; --accent2: #16a34a; --blue: #2563eb;
+      --shadow: 0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.10);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--bg); color: var(--ink);
+      font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+    header {
+      background: linear-gradient(90deg, #fff7ed, #ecfdf5);
+      border-bottom: 1px solid var(--line); padding: 20px 24px;
+    }
+    header h1 { margin: 0; font-size: 20px; letter-spacing: -.01em; }
+    header .sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
+    .wrap { max-width: 1000px; margin: 0 auto; padding: 24px; }
+    .row { display: flex; gap: 16px; flex-wrap: wrap; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; margin: 16px 0 24px; }
+    .card {
+      background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+      padding: 16px; box-shadow: var(--shadow);
+    }
+    .card .k { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+    .card .v { font-size: 24px; font-weight: 650; margin-top: 6px; }
+    .card .v small { font-size: 13px; color: var(--muted); font-weight: 500; }
+    label { font-size: 13px; color: var(--muted); margin-right: 8px; }
+    select {
+      font: inherit; padding: 8px 10px; border: 1px solid var(--line);
+      border-radius: 8px; background: #fff; color: var(--ink);
+    }
+    h2 { font-size: 15px; margin: 24px 0 10px; }
+    table { width: 100%; border-collapse: collapse; background: var(--card);
+      border: 1px solid var(--line); border-radius: 12px; overflow: hidden; box-shadow: var(--shadow); }
+    th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); font-size: 14px; }
+    th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .03em; background: #fafbfc; }
+    tr:last-child td { border-bottom: none; }
+    tbody tr { cursor: pointer; }
+    tbody tr:hover { background: #fafafa; }
+    tr.active { background: #fff7ed; }
+    .num { text-align: right; font-variant-numeric: tabular-nums; }
+    .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+    .pill.Completed { background: #dcfce7; color: #166534; }
+    .pill.Pending { background: #fef9c3; color: #854d0e; }
+    .pill.InProgress { background: #dbeafe; color: #1e40af; }
+    .pill.Failed { background: #fee2e2; color: #991b1b; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: var(--muted); }
+    .btn {
+      display: inline-block; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--line);
+      background: #fff; color: var(--ink); font: inherit; font-size: 13px; cursor: pointer; text-decoration: none;
+    }
+    .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .legend { display: flex; gap: 16px; font-size: 12px; color: var(--muted); margin: 4px 2px 0; }
+    .legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+    .muted { color: var(--muted); }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>☀️ SolarLedger</h1>
+    <div class="sub">Renewable Energy Community — settlement dashboard</div>
+  </header>
+  <div id="root" class="wrap"></div>
+
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+    const eur = n => "€" + Number(n).toFixed(2);
+    const kwh = n => Number(n).toFixed(2) + " kWh";
+    const get = url => fetch(url).then(r => r.ok ? r.json() : Promise.reject(r.status));
+
+    function Chart({ hours }) {
+      if (!hours || hours.length === 0) return null;
+      const W = 920, H = 200, pad = 28;
+      const max = Math.max(...hours.map(h => Math.max(h.injectedKwh, h.withdrawnKwh, h.sharedKwh)), 1);
+      const x = i => pad + (i * (W - 2 * pad)) / Math.max(hours.length - 1, 1);
+      const y = v => H - pad - (v / max) * (H - 2 * pad);
+      const path = key => hours.map((h, i) => (i ? "L" : "M") + x(i).toFixed(1) + " " + y(h[key]).toFixed(1)).join(" ");
+      const area = key => "M" + x(0) + " " + y(0) + " " + hours.map((h, i) => "L" + x(i).toFixed(1) + " " + y(h[key]).toFixed(1)).join(" ") + " L" + x(hours.length - 1) + " " + y(0) + " Z";
+      return (
+        <div className="card" style={{ padding: 16 }}>
+          <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 6 }}>Hourly energy — shared is min(injected, withdrawn)</div>
+          <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: "auto" }}>
+            <path d={area("sharedKwh")} fill="#f59e0b22" stroke="none" />
+            <path d={path("injectedKwh")} fill="none" stroke="#2563eb" strokeWidth="1.5" opacity="0.7" />
+            <path d={path("withdrawnKwh")} fill="none" stroke="#16a34a" strokeWidth="1.5" opacity="0.7" />
+            <path d={path("sharedKwh")} fill="none" stroke="#f59e0b" strokeWidth="2.5" />
+          </svg>
+          <div className="legend">
+            <span style={{ "--c": "#f59e0b" }}><i style={{ background: "#f59e0b" }}></i>Shared</span>
+            <span><i style={{ background: "#2563eb" }}></i>Injected</span>
+            <span><i style={{ background: "#16a34a" }}></i>Withdrawn</span>
+          </div>
+        </div>
+      );
+    }
+    // legend swatch color via inline style
+    document.head.insertAdjacentHTML("beforeend", "<style>.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px}</style>");
+
+    function App() {
+      const [communities, setCommunities] = useState([]);
+      const [communityId, setCommunityId] = useState(null);
+      const [names, setNames] = useState({});
+      const [runs, setRuns] = useState([]);
+      const [runId, setRunId] = useState(null);
+      const [detail, setDetail] = useState(null);
+      const [hours, setHours] = useState([]);
+
+      useEffect(() => { get("/communities").then(cs => { setCommunities(cs); if (cs[0]) setCommunityId(cs[0].id); }); }, []);
+      useEffect(() => {
+        if (!communityId) return;
+        get(`/communities/${communityId}`).then(c => {
+          const map = {}; c.members.forEach(m => map[m.id] = m.name); setNames(map);
+        });
+        get(`/communities/${communityId}/settlement/runs`).then(rs => {
+          setRuns(rs); setRunId(rs.length ? rs[0].id : null);
+        });
+      }, [communityId]);
+      useEffect(() => {
+        if (!runId) { setDetail(null); setHours([]); return; }
+        get(`/settlement/runs/${runId}`).then(setDetail);
+        get(`/settlement/runs/${runId}/hourly`).then(setHours);
+      }, [runId]);
+
+      const workers = [...new Set(runs.map(r => r.claimedBy).filter(Boolean))];
+
+      return (
+        <div>
+          <div className="row" style={{ alignItems: "center" }}>
+            <div>
+              <label>Community</label>
+              <select value={communityId || ""} onChange={e => setCommunityId(Number(e.target.value))}>
+                {communities.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+            <div className="muted" style={{ fontSize: 13 }}>
+              {runs.length} runs · processed by {workers.length} worker{workers.length === 1 ? "" : "s"}
+            </div>
+          </div>
+
+          {detail && (
+            <div className="cards">
+              <div className="card"><div className="k">Shared energy</div><div className="v">{Number(detail.totalSharedKwh).toFixed(2)} <small>kWh</small></div></div>
+              <div className="card"><div className="k">Incentive</div><div className="v">{eur(detail.totalIncentiveEur)}</div></div>
+              <div className="card"><div className="k">Policy</div><div className="v" style={{ fontSize: 16 }}>{detail.policyName}</div></div>
+              <div className="card"><div className="k">Processed by</div><div className="v mono" style={{ fontSize: 13 }}>{detail.claimedBy || "—"}</div></div>
+            </div>
+          )}
+
+          <Chart hours={hours} />
+
+          <h2>Settlement runs</h2>
+          <table>
+            <thead><tr><th>Period</th><th>Status</th><th>Worker</th><th className="num">Shared</th><th className="num">Incentive</th></tr></thead>
+            <tbody>
+              {runs.map(r => (
+                <tr key={r.id} className={r.id === runId ? "active" : ""} onClick={() => setRunId(r.id)}>
+                  <td>{r.from.slice(0, 10)}</td>
+                  <td><span className={"pill " + r.status}>{r.status}</span></td>
+                  <td className="mono">{r.claimedBy || "—"}</td>
+                  <td className="num">{Number(r.totalSharedKwh).toFixed(2)}</td>
+                  <td className="num">{eur(r.totalIncentiveEur)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {detail && (
+            <div>
+              <div className="row" style={{ justifyContent: "space-between", alignItems: "center", marginTop: 24 }}>
+                <h2 style={{ margin: 0 }}>Member payouts — run #{detail.id}</h2>
+                <a className="btn primary" href={`/settlement/runs/${detail.id}/report.csv`}>Download CSV</a>
+              </div>
+              <table style={{ marginTop: 10 }}>
+                <thead><tr><th>Member</th><th className="num">Attributed</th><th className="num">Incentive</th></tr></thead>
+                <tbody>
+                  {detail.members.map(m => (
+                    <tr key={m.memberId} style={{ cursor: "default" }}>
+                      <td>{names[m.memberId] || ("#" + m.memberId)}</td>
+                      <td className="num">{kwh(m.attributedKwh)}</td>
+                      <td className="num">{eur(m.incentiveEur)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>

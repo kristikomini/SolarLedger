@@ -1,0 +1,62 @@
+services:
+  oracle:
+    image: gvenzl/oracle-xe:21-slim
+    container_name: solarledger-oracle
+    environment:
+      ORACLE_PASSWORD: Oracle_2026
+      APP_USER: SOLAR
+      APP_USER_PASSWORD: Solar_2026
+    ports:
+      - "1521:1521"
+    volumes:
+      - oracle-data:/opt/oracle/oradata
+    healthcheck:
+      test: ["CMD", "healthcheck.sh"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 90s
+
+  # Control plane: serves the API, applies migrations, does NOT process runs.
+  api:
+    build:
+      context: .
+      dockerfile: src/SolarLedger.Api/Dockerfile
+    image: solarledger-api
+    container_name: solarledger-api
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__Default: "User Id=SOLAR;Password=Solar_2026;Data Source=oracle:1521/XEPDB1;"
+      ApplyMigrations: "true"
+      Worker__Enabled: "false"
+    ports:
+      - "5080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+    depends_on:
+      oracle:
+        condition: service_healthy
+
+  # Worker: processes runs, no HTTP exposure, no migration. Scale with:
+  #   docker compose up -d --scale worker=2
+  # Waits for the API to be HEALTHY (i.e. migrations applied) before polling, so it
+  # never contends with the migration.
+  worker:
+    image: solarledger-api
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__Default: "User Id=SOLAR;Password=Solar_2026;Data Source=oracle:1521/XEPDB1;"
+      ApplyMigrations: "false"
+      Worker__Enabled: "true"
+    depends_on:
+      oracle:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+
+volumes:
+  oracle-data:

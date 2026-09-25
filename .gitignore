@@ -1,0 +1,16 @@
+## .NET
+bin/
+obj/
+*.user
+[Dd]ebug/
+[Rr]elease/
+artifacts/
+.vs/
+
+## Rider / VS Code
+.idea/
+.vscode/
+
+## Env / local
+*.env
+.env

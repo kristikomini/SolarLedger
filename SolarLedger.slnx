@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/SolarLedger.Api/SolarLedger.Api.csproj" />
+    <Project Path="src/SolarLedger.Application/SolarLedger.Application.csproj" />
+    <Project Path="src/SolarLedger.Domain/SolarLedger.Domain.csproj" />
+    <Project Path="src/SolarLedger.Infrastructure/SolarLedger.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/SolarLedger.UnitTests/SolarLedger.UnitTests.csproj" />
+  </Folder>
+</Solution>

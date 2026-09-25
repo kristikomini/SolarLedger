@@ -1,0 +1,11 @@
+<Project>
+  <!-- Shared build settings for every project in SolarLedger.
+       .NET 8 is deliberate: it matches the target stack (Teoresi ad: ".NET 8"). -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+</Project>
